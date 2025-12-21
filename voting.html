@@ -179,8 +179,11 @@ const DATA = {
         if(usrRes.data.has_voted) return lock('ALREADY VOTED', 'Your vote is already recorded.');
 
         // B. Check Device Lock (RPC Call)
-        const { data: isDeviceLocked } = await sb.rpc('check_device_status', { p_ip: ipData.ip });
-        
+// Now we send both IP and User Agent to check the specific device
+const { data: isDeviceLocked } = await sb.rpc('check_device_status', { 
+    p_ip: ipData.ip,
+    p_ua: navigator.userAgent 
+});        
         if(isDeviceLocked) {
             // Database says LOCKED -> Lock the screen
             localStorage.setItem('voted', 'true'); 
