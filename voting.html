@@ -175,7 +175,7 @@ const DATA = {
         const [ipData, usrRes] = await Promise.all([ipReq, usrReq]);
 
         // A. Check Student Status
-        if (!usrRes.data) return lock('INVALID ID', 'Student ID not found.');
+        if (!usrRes.data) return lock('UNAUTHORIZED ACCESS', 'Student not Authorized to vote.');
         if(usrRes.data.has_voted) return lock('ALREADY VOTED', 'Your vote is already recorded.');
 
         // B. Check Device Lock (RPC Call)
