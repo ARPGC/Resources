@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand Finale | EcoCampus</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --bg:#050505; --card:#111; --gold:#FFD700; 
+            --grad: linear-gradient(135deg, #FFD700 0%, #FDB931 50%, #998100 100%);
+            --neon-glow: 0 0 15px rgba(255, 215, 0, 0.4);
+            --status-good: #00ff88;
+            --status-bad: #ff4444;
+        }
+        
+        body { 
+            margin:0; background:var(--bg); color:#fff; font-family:'Outfit',sans-serif; 
+            padding-bottom:140px; 
+            user-select:none; -webkit-tap-highlight-color: transparent; 
+            display: flex; flex-direction: column; min-height: 100vh;
+        }
+
+        /* STATUS BAR */
+        #status-bar {
+            background: #222; font-size: 0.75rem; text-align: center; padding: 8px;
+            font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid #333;
+            transition: color 0.3s;
+        }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #666; }
+        
+        /* HEADER */
+        header { 
+            position:sticky; top:0; z-index:100; 
+            background:rgba(5,5,5,0.95); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+            padding:15px; border-bottom:1px solid rgba(255,215,0,0.1); 
+            text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .badge { background: #222; color: var(--gold); border: 1px solid rgba(255,215,0,0.3); font-size: 0.6rem; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; display: inline-block; font-weight: 700; }
+        .logo { font-weight:900; font-size:1.5rem; background:var(--grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-transform: uppercase; letter-spacing: -0.5px; }
+        #timer { font-size:0.9rem; font-weight:700; color:var(--gold); margin-top:5px; font-variant-numeric: tabular-nums; }
+
+        /* CONTAINER */
+        .container { 
+            width: 100%; max-width: 500px; margin: 0 auto; padding: 10px; box-sizing: border-box; 
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+        }
+        
+        h4 { 
+            color: #fff; margin: 30px 0 20px; text-align: center; width: 100%;
+            text-transform: uppercase; letter-spacing: 2px; font-size: 0.8rem; font-weight: 700; opacity: 0.7;
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+        }
+        h4::before, h4::after { content: ''; height: 1px; flex: 1; max-width: 50px; background: var(--gold); opacity: 0.5; }
+
+        /* CANDIDATES */
+        .candidates-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 25px 15px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .candidate-item {
+            display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; position: relative;
+            transform: scale(1);
+            transition: transform 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .candidate-item:active { transform: scale(0.95); }
+
+        .img-ring {
+            width: 75px; height: 75px; 
+            border-radius: 50%; padding: 3px;
+            border: 2px solid #333; position: relative;
+            transition: border-color 0.2s; background: #000;
+        }
+        .candidate-item.selected .img-ring {
+            border-color: var(--gold);
+            box-shadow: var(--neon-glow);
+        }
+
+        .c-avatar {
+            width: 100%; height: 100%; border-radius: 50%;
+            object-fit: cover; background: #222;
+            filter: grayscale(100%); transition: filter 0.2s;
+        }
+        .candidate-item.selected .c-avatar { filter: grayscale(0%); }
+
+        .check-badge {
+            position: absolute; bottom: -2px; right: -2px;
+            width: 24px; height: 24px;
+            background: var(--grad); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #000; font-weight: 900; font-size: 12px;
+            opacity: 0; transform: scale(0);
+            transition: transform 0.2s;
+            border: 2px solid #000; z-index: 10;
+        }
+        .candidate-item.selected .check-badge { opacity: 1; transform: scale(1); }
+
+        .c-name {
+            margin-top: 8px; font-weight: 600; font-size: 0.75rem;
+            text-align: center; color: #aaa; line-height: 1.2;
+            width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .c-role { font-size: 0.6rem; color: #555; text-align: center; margin-top: 2px; }
+        .candidate-item.selected .c-name { color: #fff; font-weight: 700; }
+        .candidate-item.selected .c-role { color: var(--gold); }
+
+        /* OVERLAYS */
+        #overlay { 
+            position:fixed; top:0; left:0; width:100%; height:100%; 
+            background:rgba(0,0,0,0.96); z-index:9999; 
+            display:flex; flex-direction:column; align-items:center; justify-content:center; 
+            text-align:center; padding: 20px; box-sizing: border-box; 
+        }
+        .icon-lock { font-size: 3rem; margin-bottom: 20px; color: #444; }
+        
+        /* Blur applied to app container, removed when verified */
+        .blur { filter:blur(12px); pointer-events:none; opacity:0.3; transition: all 0.5s ease; }
+
+        /* PERMISSION BUTTON */
+        #perm-btn {
+            margin-top:25px; padding:16px 40px; 
+            background:var(--grad); color: #000;
+            border:none; border-radius:50px; 
+            font-weight:800; font-size: 1.1rem; cursor:pointer;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            animation: pulse-btn 2s infinite;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        @keyframes pulse-btn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* VOTE BUTTON */
+        .btn-container {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, #050505 90%, transparent);
+            padding: 20px 0 30px;
+            display: flex; justify-content: center;
+            pointer-events: none; z-index: 200;
+        }
+        .btn { 
+            pointer-events: auto;
+            width:90%; max-width:400px; padding:16px; 
+            background:#222; color:#555; 
+            border-radius: 50px; border:1px solid #333; 
+            font-weight:800; font-size: 1rem; 
+            cursor:not-allowed; text-transform:uppercase; 
+            transition:0.2s; letter-spacing: 1px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .btn.active { 
+            background:var(--grad); color:#000; border-color: transparent;
+            cursor:pointer; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top: 3px solid var(--gold); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="spinner" id="ov-spin"></div>
+        <div class="icon-lock" id="ov-icon" style="display:none">🔒</div>
+        
+        <h1 class="logo" style="-webkit-text-fill-color:unset; color:var(--gold); font-size:1.8rem; margin-bottom:10px;" id="ov-title">LOADING...</h1>
+        <p style="color:#888; font-size:1rem; max-width: 300px; line-height: 1.5;" id="ov-msg">System Check...</p>
+        
+        <button id="perm-btn" style="display:none;" onclick="manualTriggerGPS()">VERIFY LOCATION</button>
+    </div>
+
+    <div id="status-bar">
+        <span class="status-dot"></span> <span id="status-text">Initializing...</span>
+    </div>
+
+    <header>
+        <span class="badge">Grand Finale • Live</span>
+        <div class="logo">The Final Showdown</div>
+        <div id="timer">00:00</div>
+    </header>
+    
+    <div class="container blur" id="app">
+        <h4>Select Mr. BKBNC</h4>
+        <div id="l-boys" class="candidates-grid"></div>
+        
+        <h4>Select Miss BKBNC</h4>
+        <div id="l-girls" class="candidates-grid"></div>
+    </div>
+    
+    <div class="btn-container">
+        <button class="btn" id="sub" onclick="vote()">Select 1 Boy & 1 Girl</button>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = "https://rdxknqyszgoymlvqwgrj.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_iS9a8Rk6_wweyISm9GQYbQ_YqFapjAu";
+        
+        // --- FIXED TIME WINDOW (Dec 24, 2025 | 5:00 PM to 5:05 PM) ---
+        const START_TIME = new Date("2025-12-24T16:50:00").getTime();
+        const END_TIME   = new Date("2025-12-24T17:30:00").getTime();
+
+        // GEO-FENCING
+        const TARGET_LAT = 19.248114;
+        const TARGET_LNG = 73.146977;
+        const MAX_DISTANCE_METERS = 30; // 30m Radius
+        
+        // DATA
+        const DATA = {
+            boys: [
+                { id: "b1", name: "Aashish Yadav", role: "TYBCOM", img: "https://i.ibb.co/rK7rNzZz/image.png" },
+                { id: "b2", name: "Krushnakant Pal", role: "TYBSC CS", img: "https://i.ibb.co/KxP8J2Qg/image.png" },
+                { id: "b3", name: "Suraj Yadav", role: "TYBSC CS", img: "https://i.ibb.co/Hf3nY4yG/image.png" },
+                { id: "b4", name: "Yashraj Gaikwad", role: "TYBSC CS", img: "https://i.ibb.co/TMy7100K/1000231792-f742f4fa052e029d67e046b37879c8af-29-4-2025-11-42-50-am-20251218-223157-0000.jpg" },
+                { id: "b5", name: "Prasad Jawale", role: "SYBSC CS", img: "https://i.ibb.co/F4fWpF2d/image.png" },
+                { id: "b6", name: "Dhananjay Gupta", role: "TYBSC", img: "https://i.ibb.co/Wp5wqgx7/image.png" }
+            ],
+            girls: [
+                { id: "g1", name: "Vaidehi Gund", role: "TYBMS", img: "https://i.ibb.co/pB6gFvH3/image.png" },
+                { id: "g2", name: "Ekta Dixit", role: "TYBSC CS", img: "https://i.ibb.co/3YQ2xWJS/image.png" },
+                { id: "g3", name: "Divya Nair", role: "SYBSC CS", img: "https://i.ibb.co/j94yBpdH/image.png" },
+                { id: "g4", name: "Dharani Mudaliyar", role: "TYBSC CS", img: "https://i.ibb.co/VcnPCMq7/image.png" },
+                { id: "g5", name: "Kaustubhi Chavan", role: "TYBSC CS", img: "https://i.ibb.co/4nzgL2Qf/image.png" },
+                { id: "g6", name: "Dhani Singh", role: "SYBMS", img: "https://i.ibb.co/JRv3YGF8/image.png" }
+            ]
+        };
+
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const uid = new URLSearchParams(location.search).get('id');
+        
+        let selectedBoy = null;
+        let selectedGirl = null;
+        let userLat = 0, userLng = 0;
+        let hasAccess = false; 
+        let idVerified = false;
+
+        // --- 1. INITIALIZE ---
+        window.onload = async () => {
+            // STRICT ID CHECK ON LOAD
+            if(!uid) return lock('ACCESS DENIED', 'No Student ID found in URL.', '🔒');
+            
+            // Check Database for ID validity immediately
+            verifyID();
+
+            initApp(); 
+            updateStatus('neutral', 'Waiting for Event...');
+            
+            // Start Timer Loop
+            setInterval(tick, 1000); 
+            tick(); 
+        };
+
+        async function verifyID() {
+            try {
+                const { data, error } = await sb.from('voter_list').select('has_voted').eq('student_id', uid).single();
+                
+                if (error || !data) {
+                    return lock('UNAUTHORIZED ACCESS', 'Student not Authorized to vote.', '🚫');
+                }
+                if (data.has_voted) {
+                    updateStatus('bad', 'Already Voted');
+                    return lock('ALREADY VOTED', 'Your vote is already recorded.', '✅');
+                }
+                
+                // ID Valid
+                idVerified = true;
+                
+            } catch(e) {
+                lock("CONNECTION ERROR", "Could not verify ID.", "⚠️");
+            }
+        }
+
+        // --- 2. TIME LOOP ---
+        function tick() {
+            const now = Date.now();
+            const tm = document.getElementById('timer');
+            const overlay = document.getElementById('overlay');
+            const spin = document.getElementById('ov-spin');
+            const btn = document.getElementById('perm-btn');
+
+            if (now < START_TIME) {
+                // --- PRE-EVENT ---
+                const diff = START_TIME - now;
+                const m = Math.floor(diff / 60000).toString().padStart(2, '0');
+                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                
+                tm.innerText = `STARTS IN: ${m}:${s}`;
+                tm.style.color = "#888";
+                
+                // If not showing locked message
+                if(overlay.style.display === 'none' || overlay.style.display === '') {
+                    lock("WAITING FOR START", `Event starts at 5:00 PM`, "⏳");
+                    spin.style.display = 'block';
+                    btn.style.display = 'none';
+                }
+
+            } else if (now > END_TIME) {
+                // --- EVENT OVER ---
+                lock('VOTING CLOSED', 'The voting window has ended.', '⏰');
+                tm.innerText = "CLOSED";
+                tm.style.color = "#ff4444";
+                updateStatus('bad', 'Voting Closed');
+                spin.style.display = 'none';
+                btn.style.display = 'none';
+
+            } else {
+                // --- LIVE EVENT ---
+                const diff = END_TIME - now;
+                const m = Math.floor(diff / 60000).toString().padStart(2, '0');
+                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                tm.innerText = `CLOSING IN: ${m}:${s}`;
+                tm.style.color = "var(--gold)";
+                
+                // SHOW BUTTON IF ID IS VERIFIED & NOT UNLOCKED YET
+                if (idVerified && !hasAccess && btn.style.display === 'none') {
+                    document.getElementById('ov-title').innerText = "LOCATION CHECK";
+                    document.getElementById('ov-msg').innerHTML = "You must be at the Main Building.";
+                    spin.style.display = 'none';
+                    btn.style.display = 'block';
+                    updateStatus('neutral', 'Verify Location');
+                }
+            }
+        }
+
+        // --- 3. LOCATION LOGIC ---
+        
+        function manualTriggerGPS() {
+            const spin = document.getElementById('ov-spin');
+            const btn = document.getElementById('perm-btn');
+            
+            btn.style.display = 'none';
+            spin.style.display = 'block';
+            document.getElementById('ov-msg').innerText = "Acquiring accurate position...";
+            
+            if(!navigator.geolocation) return lock("ERROR", "Geolocation not supported.", "⚠️");
+
+            // HIGH ACCURACY REQUEST
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userLat = pos.coords.latitude;
+                    userLng = pos.coords.longitude;
+                    checkDatabase();
+                },
+                (err) => {
+                    spin.style.display = 'none';
+                    btn.style.display = 'block';
+                    document.getElementById('ov-msg').innerText = "Location permission required.";
+                    updateStatus('bad', 'Permission Denied');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        async function checkDatabase() {
+            // 1. Distance Check
+            const dist = getDistance(userLat, userLng, TARGET_LAT, TARGET_LNG);
+            if(dist > MAX_DISTANCE_METERS) {
+                updateStatus('bad', `Out of Range (${Math.round(dist)}m)`);
+                // Show Error but allow retry
+                document.getElementById('ov-spin').style.display = 'none';
+                document.getElementById('perm-btn').style.display = 'block';
+                document.getElementById('ov-title').innerText = "OUT OF RANGE";
+                document.getElementById('ov-msg').innerHTML = `You are ${Math.round(dist)}m away.<br>You must be within 30m.`;
+                return;
+            }
+
+            // 2. Final Security Check (Device)
+            document.getElementById('ov-msg').innerText = "Final Security Check...";
+            try {
+                // We already checked ID existence, now check Device Lock
+                const ipReq = fetch('https://api.ipify.org?format=json').then(r=>r.json());
+                const [ipData] = await Promise.all([ipReq]);
+
+                const { data: isLocked } = await sb.rpc('check_device_status', { 
+                    p_ip: ipData.ip, 
+                    p_ua: navigator.userAgent 
+                });
+
+                if (isLocked) {
+                    updateStatus('bad', 'Device Used');
+                    return lock('DEVICE LOCKED', 'This device has already been used.', '📱');
+                }
+
+                // UNLOCK SUCCESS
+                hasAccess = true;
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('app').classList.remove('blur');
+                updateStatus('good', '✅ Verified: In Voting Area');
+
+            } catch(e) {
+                console.error(e);
+                lock("CONNECTION ERROR", "Could not connect to server.", "⚠️");
+            }
+        }
+
+        function updateStatus(type, msg) {
+            const bar = document.getElementById('status-bar');
+            const dot = bar.querySelector('.status-dot');
+            document.getElementById('status-text').innerText = msg;
+            
+            if(type === 'good') {
+                dot.style.background = 'var(--status-good)';
+                bar.style.color = 'var(--status-good)';
+            } else if (type === 'bad') {
+                dot.style.background = 'var(--status-bad)';
+                bar.style.color = 'var(--status-bad)';
+            } else {
+                dot.style.background = '#666';
+                bar.style.color = '#fff';
+            }
+        }
+
+        // --- APP LOGIC ---
+        function initApp() {
+            renderList('boys', DATA.boys);
+            renderList('girls', DATA.girls);
+        }
+
+        function renderList(type, list) {
+            const container = document.getElementById(`l-${type}`);
+            container.innerHTML = "";
+            list.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'candidate-item';
+                el.id = c.id;
+                el.onclick = () => select(type, c.id);
+                const displayName = c.name.split(' ')[0]; 
+                el.innerHTML = `
+                    <div class="img-ring"><img src="${c.img}" class="c-avatar"><div class="check-badge">✔</div></div>
+                    <div class="c-name">${displayName}</div>
+                    <div class="c-role">${c.role}</div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function select(type, id) {
+            if (!hasAccess) return; 
+            const container = document.getElementById(`l-${type}`);
+            [...container.children].forEach(c => c.classList.remove('selected'));
+            document.getElementById(id).classList.add('selected');
+            if(navigator.vibrate) navigator.vibrate(50);
+            if(type === 'boys') selectedBoy = id;
+            if(type === 'girls') selectedGirl = id;
+            updateBtn();
+        }
+
+        function updateBtn() {
+            const btn = document.getElementById('sub');
+            if(selectedBoy && selectedGirl) {
+                btn.classList.add('active');
+                btn.innerText = "CONFIRM VOTE";
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "Select 1 Boy & 1 Girl";
+            }
+        }
+
+        async function vote() {
+            const btn = document.getElementById('sub');
+            if(!btn.classList.contains('active')) return;
+            if (Date.now() > END_TIME) return lock("TIME UP", "Voting has closed.", "⏰");
+
+            const { isConfirmed } = await Swal.fire({
+                title: 'Confirm Vote?', text: 'You cannot change this later.',
+                icon: 'warning', showCancelButton: true, confirmButtonColor: '#FFD700',
+                confirmButtonText: 'Yes, Submit', background: '#111', color: '#fff'
+            });
+
+            if(!isConfirmed) return;
+            Swal.fire({title:'Submitting...', didOpen:()=>Swal.showLoading(), background:'#111', color:'#fff', allowOutsideClick:false});
+
+            try {
+                const ip = await fetch('https://api.ipify.org?format=json').then(r=>r.json());
+                const { error } = await sb.rpc('cast_final_vote', {
+                    p_student_id: uid, p_boy_id: selectedBoy, p_girl_id: selectedGirl,
+                    p_ip: ip.ip, p_ua: navigator.userAgent, p_lat: userLat, p_long: userLng
+                });
+
+                if(error) throw error;
+
+                await Swal.fire({
+                    title: 'Voted Successfully!', icon: 'success',
+                    confirmButtonColor: '#FFD700', background: '#111', color: '#fff'
+                });
+                location.reload();
+
+            } catch(e) { Swal.fire('Error', e.message, 'error'); }
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; 
+            const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function lock(title, msg, icon) {
+            const ov = document.getElementById('overlay');
+            ov.style.display = 'flex';
+            document.getElementById('ov-spin').style.display = 'none';
+            document.getElementById('ov-icon').style.display = 'block';
+            document.getElementById('ov-icon').innerText = icon;
+            document.getElementById('ov-title').innerText = title;
+            document.getElementById('ov-msg').innerHTML = msg;
+            
+            // Hide button if completely locked
+            if(title === "ACCESS DENIED" || title === "ALREADY VOTED" || title === "DEVICE LOCKED") {
+                document.getElementById('perm-btn').style.display = 'none';
+            }
+            
+            document.getElementById('app').classList.add('blur');
+        }
+    </script>
+</body>
+</html>
