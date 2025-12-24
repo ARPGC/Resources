@@ -206,8 +206,8 @@
         const SUPABASE_KEY = "sb_publishable_iS9a8Rk6_wweyISm9GQYbQ_YqFapjAu";
         
         // --- FIXED TIME WINDOW (Dec 24, 2025 | 5:00 PM to 5:05 PM) ---
-        const START_TIME = new Date("2025-12-24T20:30:00").getTime();
-        const END_TIME   = new Date("2025-12-24T20:35:00").getTime();
+        const START_TIME = new Date("2025-12-24T20:15:00").getTime();
+        const END_TIME   = new Date("2025-12-24T20:20:00").getTime();
 
         // GEO-FENCING
         const TARGET_LAT = 19.248114;
@@ -298,7 +298,7 @@
                 
                 // If not showing locked message
                 if(overlay.style.display === 'none' || overlay.style.display === '') {
-                    lock("WAITING FOR START", `Voting will start Soon...`, "⏳");
+                    lock("WAITING FOR START", `Voting will start at 8:15`, "⏳");
                     spin.style.display = 'block';
                     btn.style.display = 'none';
                 }
